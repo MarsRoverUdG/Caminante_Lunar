@@ -31,8 +31,8 @@ def callback_laser(msg):
     #    laser_sec[i, :] = laser[30*i:30*(i)+30]
     #    min_sec[i,1] = np.amin(laser_sec[i, :])
     #    min_sec[i,2] = (90+np.argmin(laser_sec[i, :]) + 30*i) * msg.angle_increment
-    distances = min_sec[:,1].tolist()
-    angles = min_sec[:,2].tolist()
+    distances = min_sec[:,0].tolist()
+    angles = min_sec[:,1].tolist()
 
 def main():
     global distances
