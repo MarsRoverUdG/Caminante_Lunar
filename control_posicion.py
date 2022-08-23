@@ -6,8 +6,6 @@ import tf2_ros
 import numpy as np
 from geometry_msgs.msg import Twist, PoseStamped
 
-def callback_LaserScan(msg):
-    print(len(msg.ranges))
 
 def callback_meta(msg):
     print('Pose meta:  ', PoseStamped_to_pose(msg))
@@ -51,7 +49,6 @@ def PoseStamped_to_pose(msg):
 if __name__ == '__main__':
     rospy.init_node("control_posicion")
     rospy.Subscriber("/meta_competencia", PoseStamped, callback_meta)
-    rospy.Subscriber("/hsrb/base_scan", LaserScan, callback_LaserScan)
     pub_cmd_vel = rospy.Publisher("/hsrb/command_velocity", Twist, queue_size=10)
     
     # Iniciar el árbol de transformaciones. Se necesita un delay para dar tiempo a cargar los
@@ -61,7 +58,6 @@ if __name__ == '__main__':
     rospy.sleep(1)
     
     loop = rospy.Rate(10)
-    laser = Laser()
     
     while not rospy.is_shutdown():
 
