@@ -9,15 +9,10 @@ import tf
 import tf2_ros
 import numpy as np
 from std_msgs.msg import Float32MultiArray
-from geometry_msgs.msg import Twist, PoseStamped
-
-def callback_meta(msg):
-    global meta
-    meta = PoseStamped_to_pose(msg)
-    print('Pose meta:  ', PoseStamped_to_pose(msg))
-    print('Pose robot: ', get_base_link_pose())
+from geometry_msgs.msg import PoseStamped
     
 def PoseStamped_to_pose(msg):
+    global meta_coords
     # PoseStamped_to_pose2d() convierte un mensaje tipo PoseStamped a una pose 2d en un arreglo
     # de Numpy con la forma (x,y,theta) con theta en radianes.
     
@@ -25,7 +20,7 @@ def PoseStamped_to_pose(msg):
     y = msg.pose.position.y
     (_, _, theta) = tf.transformations.euler_from_quaternion([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
 
-    return np.array([x, y, theta])
+    meta_coords =  list([x, y, theta])
 
 def get_base_link_pose():
     # get_base_link_pose() regresa un arreglo en Numpy con la pose de la base del robot con
@@ -37,7 +32,7 @@ def get_base_link_pose():
     y = trans.transform.translation.y
     (_, _, theta) = tf.transformations.euler_from_quaternion([trans.transform.rotation.x, trans.transform.rotation.y, trans.transform.rotation.z, trans.transform.rotation.w])
 
-    return np.array([x, y, theta])
+    return list([x, y, theta])
 
 def get_base_link_coords():
     for i in range(10):
@@ -47,25 +42,13 @@ def get_base_link_coords():
         except:
             print ('waiting for tf')
             trans = 0
-    
-def get_base_link_pose():
-    # get_base_link_pose() regresa un lista con la pose de la base del base_link con
-    # respecto al marco de referencia global en la forma [x, y, theta] con theta en radianes.
-    
-    trans = get_base_link_coords()
-    
-    x = trans.transform.translation.x
-    y = trans.transform.translation.y
-    (_, _, theta) = tf.transformations.euler_from_quaternion([trans.transform.rotation.x, trans.transform.rotation.y, trans.transform.rotation.z, trans.transform.rotation.w])
-
-    return list([x, y, theta])
 
 if __name__ == '__main__':
-    global meta
+    global meta_coords
     rospy.init_node("base_link_coords")
-    rospy.Subscriber("/meta_competencia", PoseStamped,callback_meta)
+    rospy.Subscriber("/meta_competencia", PoseStamped,PoseStamped_to_pose)
     pub_coords = rospy.Publisher("/base_link_coords", Float32MultiArray, queue_size=10)
-    pub_meta_coords = rospy.Publisher("/meta_competencia_x_y_theta", Float32MultiArray, queue_size=10)
+    pub_meta_coords = rospy.Publisher("/meta_coords", Float32MultiArray, queue_size=10)
     # Iniciar el árbol de transformaciones. Se necesita un delay para dar tiempo a cargar los
     # marcos de referencia.
     tfBuffer = tf2_ros.Buffer()
@@ -75,14 +58,16 @@ if __name__ == '__main__':
     loop = rospy.Rate(10)
     
     while not rospy.is_shutdown():
-        
-        coords = Float32MultiArray()
-        coords.data = get_base_link_pose()
-        pub_coords.publish(coords)
-
-        meta_coords = Float32MultiArray()
-        meta_coords.data = meta
-        pub_meta_coords.publish(meta_coords)
+        if meta_coords != False:
+            base_coords = get_base_link_pose()
+            msg_base_coords = Float32MultiArray()
+            msg_meta_coords = Float32MultiArray()
+            msg_base_coords.data = base_coords
+            msg_meta_coords.data = meta_coords
+            pub_coords.publish(msg_base_coords)
+            pub_meta_coords.publish(msg_meta_coords)
+            print("Meta: ",meta_coords)
+            print("Base: ",base_coords)
         
         loop.sleep()
 
