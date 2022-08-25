@@ -27,17 +27,20 @@ if __name__ == '__main__':
     global obstacle_distances
     global base_pos
     global meta_pos
+    
     k_att = 1
-    k_rep = 5
+    k_rep = 1
     kvx = 0.6
     kvy = 0.6
     kw = 0.3
-    h = 0.2
+    h = 0.5
+    d_max = 1.5
+    
     rospy.init_node("control_algorithm_node")
     rospy.Subscriber("/obstacle_detect_angles",Float32MultiArray,callback_obstacle_angles)
     rospy.Subscriber("/obstacle_detect_distances",Float32MultiArray,callback_obstacle_distances)
     rospy.Subscriber("/base_link_coords", Float32MultiArray,callback_base_pos)
-    rospy.Subscriber("/meta_coords",Float32MultiArray,callback_meta_pos)
+    rospy.Subscriber("/meta_competencia_x_y_theta",Float32MultiArray,callback_meta_pos)
     pub_cmd_vel = rospy.Publisher("/hsrb/command_velocity", Twist, queue_size=10)
     loop = rospy.Rate(10)
     obstacle_angles = np.zeros((18))
@@ -49,12 +52,12 @@ if __name__ == '__main__':
         
         #Force vectors calculus
         F_att = k_att*(meta_pos[0:2] - base_pos[0:2])
-        F_rep_x = k_rep*(obstacle_distances - 1.5)*np.cos(obstacle_angles + base_pos[2])
-        F_rep_y = k_rep*(obstacle_distances - 1.5)*np.sin(obstacle_angles + base_pos[2])
+        F_rep_x = -k_rep*(pow(obstacle_distances - d_max, 4))*np.cos(obstacle_angles + base_pos[2])*[obstacle_distances <= d_max]
+        F_rep_y = -k_rep*(pow(obstacle_distances - d_max, 4))*np.sin(obstacle_angles + base_pos[2])*[obstacle_distances <= d_max]
         F_x = F_att[0] + np.sum(F_rep_x)
         F_y = F_att[1] + np.sum(F_rep_y)
         #Force normalization
-        distance_left = math.sqrt(math.pow(meta_pos[0]-base_pos[0],2) + pow(meta_pos[0]-base_pos[0],2))
+        distance_left = math.sqrt(math.pow(meta_pos[0]-base_pos[0],2) + math.pow(meta_pos[0]-base_pos[0],2))
         normF_x = F_x if distance_left <=0.3 else F_x/math.sqrt(math.pow(F_x,2) + math.pow(F_y,2))
         normF_y = F_y if distance_left <=0.3 else F_y/math.sqrt(math.pow(F_x,2) + math.pow(F_y,2))
         # Gradient step
@@ -69,16 +72,26 @@ if __name__ == '__main__':
         error_w = math.atan2(math.sin(theta_d-base_pos[2]),math.cos(theta_d-base_pos[2]))
         # Message sending
         msg_cmd_vel = Twist()
+        u_x = x_d - base_pos[0]
+        u_y = y_d - base_pos[1]
         if math.sqrt(math.pow(meta_pos[0] - base_pos[0],2) + math.pow(meta_pos[1] - base_pos[1],2)) >= 0.01:
-            msg_cmd_vel.linear.x = kvx*(x_d - base_pos[0])
-            msg_cmd_vel.linear.y = kvy*(y_d - base_pos[1])
-            msg_cmd_vel.angular.z = kw*error_w
+
+            msg_cmd_vel.linear.x = kvx*math.sqrt(u_x**2 + u_y**2)
+            msg_cmd_vel.linear.y = 0
+            msg_cmd_vel.angular.z = math.atan2(u_y,u_x)-base_pos[2]
+            print('u_x ', u_x, 'u_y', u_y)
         else:
             msg_cmd_vel.linear.x = 0
             msg_cmd_vel.linear.y = 0
-            msg_cmd_vel.angular.z = 0
-        print("error x: ",x_d - base_pos[0])
-        print("error y: ",y_d - base_pos[1])
+            msg_cmd_vel.angular.z = math.atan2(math.sin(u_y),math.cos(u_x))
+            
+
+        #print("error x: ",x_d - base_pos[0])
+        #print("error y: ",y_d - base_pos[1])
+        #print('F_attX: ', F_att[0], 'F_attY:', F_att[1])
+        #print('F_repX: ', np.sum(F_rep_x), 'F_repY:', np.sum(F_rep_y))
+        #print('x_d ', h*normF_x, 'y_d', h*normF_y)
+        #print(msg_cmd_vel)
         pub_cmd_vel.publish(msg_cmd_vel)        
         
         loop.sleep()
