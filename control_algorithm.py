@@ -39,7 +39,7 @@ if __name__ == '__main__':
     kvx = 1
     kvy = 1
     kw = 0.6
-    h = 0.15
+    h = 0.2
     d_max = 0.8
     # Ros Node Config
     rospy.init_node("control_algorithm_node")
@@ -94,8 +94,9 @@ if __name__ == '__main__':
         msg_cmd_vel = Twist()
         # Distance between the robot base and the goal
         dis_error = math.sqrt(math.pow(meta_pos[0] - base_pos[0],2) + math.pow(meta_pos[1] - base_pos[1],2))
+        angle_error = math.atan2(math.sin(meta_pos[2]-base_pos[2]),math.cos(meta_pos[2]-base_pos[2]))
         # Condition to continue or stop the control proccess
-        if dis_error >= 0.01 or error_w >= 0.01:
+        if dis_error >= 0.005 and abs(angle_error) >= 0.005:
             msg_cmd_vel.linear.x = kvx*(error_x*math.cos(base_pos[2]) + error_y*math.sin(base_pos[2]))
             msg_cmd_vel.linear.y = kvy*(-error_x*math.sin(base_pos[2]) + error_y*math.cos(base_pos[2]))
             msg_cmd_vel.angular.z = kw*error_w
