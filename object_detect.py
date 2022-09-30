@@ -15,6 +15,9 @@ import sys
 import cv2
 import os
 
+import moveit_commander
+import moveit_msgs.msg
+
 class RGBD():
 
     def __init__(self):
@@ -82,7 +85,90 @@ class RGBD():
         self._h_max = h_max
 
     def set_coordinate_name(self, name):
-        self._frame_name = name
+        self._frame_name = name  
+        
+def get_objects_coords():
+    
+    # get_objects_coords() utiliza la cámara RGB para reconocer objetos y la nube de puntos para
+    # encontrar la posición global de estos objetos con respecto a la cámara. La función regresa
+    # una lista con las coordenadas de todos los objetos identificados, sin importar si son
+    # objetos inválidos u objetos repetidos.
+    
+    # Rangos para la detección de objetos. Solo los objetos entre estos rangos se detectarán.
+    r_min = 0.1
+    r_max = 2.5    
+    
+    # Obtener imagen (480, 640, 3) y nube de puntos (480, 640).
+    rgbd = RGBD()
+    image = None
+    points = None    
+    # Esperar hasta que haya imágenes disponibles.
+    while (image is None or points is None):
+        image = rgbd.get_image()
+        points = rgbd.get_points()
+    cloud = np.nan_to_num(points['z'], nan = 10.0)
+    
+    # Detectar contornos. Modificar Canny para mejorar la detección de contornos.
+    image_gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    contours, _  = cv2.findContours(cv2.Canny(image_gray, 25, 200), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Obtener las coordenadas de los objetos detectados y guardarlas en una lista.
+    object_coords = list()
+    for n in range(len(contours)):
+        # Obtener píxeles dentro de los contornos.
+        mask = cv2.drawContours(np.zeros((480,640)), contours, contourIdx=n, color=(255,255,255),thickness=-1).astype('bool')
+        cloud_obj = cloud * mask
+        # Eliminar medidas fuera del rango de detección.
+        ind_obj = np.where(np.multiply(cloud_obj < r_max, cloud_obj > r_min))
+        ind_obj = np.asarray(ind_obj)
+                        
+        # Encontrar el centro del objeto detectado.
+        xyz = list()
+        if ind_obj.shape[1]:
+            for i in range(ind_obj.shape[1]):
+                x = ind_obj[0][i]
+                y = ind_obj[1][i]
+                xyz.append([points['x'][x,y], points['y'][x,y], points['z'][x,y]])
+            xyz = np.asarray(xyz)
+            object_coords.append(xyz.mean(axis=0))
+            
+    # Encontrar la posición de los objetos con respecto al mapa.
+    for n in range(len(object_coords)):
+        broadcaster.sendTransform((object_coords[n][0],object_coords[n][1],object_coords[n][2]),(0,0,0,1), rospy.Time.now(), 'Object0',"head_rgbd_sensor_link")
+        rospy.sleep(0.2)
+        object_coords[n] = listener.lookupTransform('map','Object0',rospy.Time(0))[0]
+    
+    return np.asarray(object_coords)
+
+def filter_objects_coords(object_coords, area, radio):
+    
+    # filter_objects_coords() recibe una lista con las posiciones de objetos identificados y
+    # procede a eliminar aquellos objetos que se encuentran duplicados o los que se encuentren
+    # fuera del área de interés. El área de interés está dada por la posición area (x,y) y un
+    # radio.
+    
+    # Eliminar los objetos que se encuentran lejos del punto de interés.
+    aux = list()
+    for i in range(len(object_coords)):
+        if (np.linalg.norm(object_coords[i][0:2] - area) < radio):
+            aux.append(object_coords[i])
+    
+    object_coords = np.asarray(aux)
+    
+    # Eliminar objetos repetidos.
+    aux = list()
+    for i in range(len(object_coords)):
+        flag = True
+        for j in range(i+1, len(object_coords)):
+            if (np.linalg.norm(object_coords[i][0:2] - object_coords[j][0:2]) < 0.1):
+                flag = False
+        if flag:
+            aux.append(object_coords[i])
+            
+    filtered_object_coords = aux
+    
+    return filtered_object_coords
+            
 
 rospy.init_node("object_detect")
 loop = rospy.Rate(10)
@@ -93,54 +179,36 @@ rospy.sleep(1)
 
 ''' FIN SETUP '''
 
-rgbd = RGBD()
-r_min = 0.25
-r_max = 2.0
+''' Inclinar cabeza y quitar brazo '''
+
+# Comandos para inclinar la cámara y esconder el brazo. Tardan mucho en hacer efecto.
+arm =  moveit_commander.MoveGroupCommander('arm')
+arm.set_named_target('go')
+arm.go(np.array((0, 0, 0.5*np.pi, -0.5*np.pi, 0, 0)))
+
+head = moveit_commander.MoveGroupCommander('head')
+head.go(np.array((0,-.15*np.pi)))
+
+''' Fin Inclinar cabeza y quitar brazo '''
 
 if __name__ == '__main__':
     while not rospy.is_shutdown():
         
-        # Obtener imagen (480, 640, 3) y nube de puntos (480, 640).
-        image = rgbd.get_image()
-        points = rgbd.get_points()
+        # Obtener coordenadas globales de todos los objetos publicados.
+        object_coords = get_objects_coords()
         
-        # Revisar si hay imágenes disponibles.
-        if not (image is None or points is None):
+        # Filtrar los objetos. Eliminar objetos repetidos y objetos fuera del área de interés.
+        area = np.array((-3.0, 4.0))
+        radio = 0.75
+        filtered_object_coords = filter_objects_coords(object_coords, area, radio)
+        
+        print('Objetos encontrados', filtered_object_coords)
+        
+        # Publicar TF de los objetos encontrados.
+        for n in range(len(filtered_object_coords)):
+            broadcaster.sendTransform((filtered_object_coords[n][0],filtered_object_coords[n][1],filtered_object_coords[n][2]),(0,0,0,1), rospy.Time.now(), 'Object' + str(n),"map")
+            rospy.sleep(0.2)
             
-            cloud = np.nan_to_num(points['z'], nan = 10.0)
-            image_gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-                        
-            # Detectar contornos. Modificar Canny para mejorar la detección de contornos.
-            contours, _  = cv2.findContours(cv2.Canny(image_gray, 25, 200), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            # Obtener las coordenadas de los objetos detectados y guardarlas en una lista.
-            object_coords = list()
-            for n in range(len(contours)):
-                # Obtener píxeles dentro de los contornos.
-                mask = cv2.drawContours(np.zeros((480,640)), contours, contourIdx=n, color=(255,255,255),thickness=-1).astype('bool')
-                cloud_obj = cloud * mask
-                # Eliminar medidas fuera del rango de detección.
-                ind_obj = np.where(np.multiply(cloud_obj < r_max, cloud_obj > r_min))
-                ind_obj = np.asarray(ind_obj)
-                                
-                # Encontrar el centro del objeto detectado.
-                xyz = list()
-                if ind_obj.shape[1]:
-                    for i in range(ind_obj.shape[1]):
-                        x = ind_obj[0][i]
-                        y = ind_obj[1][i]
-                        xyz.append([points['x'][x,y], points['y'][x,y], points['z'][x,y]])
-                    xyz = np.asarray(xyz)
-                    object_coords.append(xyz.mean(axis=0))
-                
-            #print(object_coords)
-            
-            # Encontrar la posición de los objetos con respecto al mapa.
-            for n in range(len(object_coords)):
-                broadcaster.sendTransform((object_coords[n][0],object_coords[n][1],object_coords[n][2]),(0,0,0,1), rospy.Time.now(), 'Object'+str(n),"head_rgbd_sensor_link")
-                rospy.sleep(0.2)
-                print(listener.lookupTransform('map','Object'+str(n),rospy.Time(0)))
-                
-            #exit()
-           
+        exit()
+                    
         loop.sleep()
