@@ -12,3 +12,8 @@ Orden de ejecución:
 1. obstacle_detect.py
 2. stations_and_base_link_coords.py 
 3. etapa03.py
+
+Etapa 04
+Orden de ejecución:
+1. Ejecutar la simulacion
+2. etapa04.launch
