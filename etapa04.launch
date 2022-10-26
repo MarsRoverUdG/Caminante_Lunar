@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+  <node name="base_link_coords" pkg="exercises" type="base_link_coords.py"/>
+  <node name="obstacle_detect" pkg="exercises" type="obstacle_detect.py"/>
+  <node name="path_planning" pkg="exercises" type="path_planning.py" output="screen"/>
+</launch>

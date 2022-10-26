@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="robot_name" default="$(optenv ROBOT_NAME hsrb)"/>
+  <include file="$(find hsrb_gazebo_launch)/launch/include/hsrb_gazebo_common.xml" pass_all_args="true" >
+    <arg name="map" value="$(find bring_up)/maps/moon_station.yaml" />
+    <arg name="world_name" value="$(find bring_up)/worlds/moon_station.world"/>
+    <arg name="robot_pos" value="-x 0 -y 0 -z 0 -Y 0" />
+    <arg name="use_laser_odom" value="false" />
+    <arg name="use_manipulation" value="false" />
+    <arg name="use_navigation" value="false" />
+    <arg name="use_perception" value="false" />
+    <arg name="use_task" value="false" />
+    <arg name="use_teleop" value="false" />
+    <arg name="use_web" value="false" />
+    <arg name="use_laser_odom" value="false" />
+    <arg name="rviz" value="false"/>
+  </include>
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find bring_up)/rviz/mapping.rviz"/>
+  <node name="gmapping" pkg="gmapping" type="slam_gmapping" args="scan:=/hsrb/base_scan">
+    <param name="map_update_interval" value="1.0" />
+    <param name="maxUrange" value="10.4"/>
+    <param name="linearUpdate" value="0.3"/>
+    <param name="angularUpdate" value="0.2"/>
+    <param name="xmin" value="-20"/>
+    <param name="ymin" value="-20"/>
+    <param name="xmax" value="20"/>
+    <param name="ymax" value="20"/>
+    <param name="maxRange" value="10.5"/>
+    <param name="minimumScore" value="0.0"/>
+  </node>
+  <node name="base_link_coords" pkg="exercises" type="base_link_coords.py"/>
+  <node name="obstacle_detect" pkg="exercises" type="obstacle_detect.py"/>
+  <node name="path_planning" pkg="exercises" type="path_planning.py" output="screen"/>
+</launch>
+
