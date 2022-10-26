@@ -303,7 +303,7 @@ def control(station):
         # Condition to continue or stop the control proccess
         if dis_error >= 0.05 or abs(angle_error) >= 0.2:
             if dis_error < .05:
-                kw = .3
+                kw = .4
             msg_cmd_vel.linear.x = kvx*(error_x*math.cos(base_pos[2]) + error_y*math.sin(base_pos[2]))
             msg_cmd_vel.linear.y = kvy*(-error_x*math.sin(base_pos[2]) + error_y*math.cos(base_pos[2]))
             msg_cmd_vel.angular.z = kw*error_w
