@@ -83,16 +83,6 @@ class TF_MANAGER():
 
         return [pos, rot]
 
-def arm_camera():
-    print("Esperado a mover el brazo que estorba a la vision de la cámara")
-    arm =  moveit_commander.MoveGroupCommander('arm')
-    arm.set_named_target('go')
-    arm.go(np.array((0, 0, 0.5*np.pi, -0.5*np.pi, 0, 0)))
-
-    print("Esperando a inclinar la cabeza")
-    head = moveit_commander.MoveGroupCommander('head')
-    head.go(np.array((0,-.15*np.pi)))
-
 def callback_base_pos(msg):
     global base_pos
     base_pos = np.asarray(msg.data)
@@ -117,7 +107,7 @@ def main():
 	
 	# 1. Moverse a las coordenadas (1.3, 0.0)
 	print('P1 Moviendo base a las coordenadas (1.3, 0.0)...')
-	meta_pos = [0.0, 0.0, 0.0]
+	meta_pos = [1.3, 0.0, 0.0]
 	
 	meta_coords = Float32MultiArray()
 	meta_coords.data = meta_pos
@@ -135,42 +125,40 @@ def main():
 	# 2. Subir brazo robótico.
 	print('P2 Subiendo brazo robótico...')
 	
-	#arm = moveit_commander.MoveGroupCommander('arm')
-	#arm.set_num_planning_attempts(10)
-	#arm.set_planning_time(5)
-	#arm.set_named_target('go')
-	#arm.go(np.array((0.6, 0, 0.0, 0.0, 0, 0)))
+	arm = moveit_commander.MoveGroupCommander('arm')
+	arm.set_num_planning_attempts(10)
+	arm.set_planning_time(5)
+	arm.set_named_target('go')
+	arm.go(np.array((0.6, 0, 0.0, 0.0, 0, 0)))
 	
 	print('P2 Finalizado.')
 	
 	# 2. Bajar brazo robótico.
 	print('P3 Bajando brazo robótico...')
 	
-	#arm = moveit_commander.MoveGroupCommander('arm')
-	#arm.set_num_planning_attempts(10)
-	#arm.set_planning_time(5)
-	#arm.set_named_target('go')
-	#arm.go(np.array((0.0, 0, 0.0, 0.0, 0, 0)))
+	arm = moveit_commander.MoveGroupCommander('arm')
+	arm.set_num_planning_attempts(10)
+	arm.set_planning_time(5)
+	arm.set_named_target('go')
+	arm.go(np.array((0.0, 0, 0.0, 0.0, 0, 0)))
 	
 	print('P3 Listo.')
 	
 	# 3. Girar cabeza izquierda.
 	print('P4 Girar cabeza izquierda...')
 	
-	#head = moveit_commander.MoveGroupCommander('head')
-	#head.go(np.array((0.5*np.pi,0)))
+	head = moveit_commander.MoveGroupCommander('head')
+	head.go(np.array((0.5*np.pi,0)))
 	
 	print('P5 Girar cabeza derecha...')
+	head.go(np.array((0.0*np.pi,0)))
 	
-	head = moveit_commander.MoveGroupCommander('head')
-	head.go(np.array((-0.25*np.pi,0)))
+	print('P5 Listo.')
 	
 	
 
 if __name__ == '__main__':
     try:
-        #arm_camera()
-        
         main()
     except rospy.ROSInitException:
         pass
