@@ -17,3 +17,8 @@ Etapa 04
 Orden de ejecución:
 1. Ejecutar la simulacion
 2. etapa04.launch
+
+Etapa 05
+Orden de ejecución:
+1. Ejecutar simulación (`stage05.launch`)
+2. `stage05_udeg.launch`
