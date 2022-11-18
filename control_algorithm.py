@@ -36,11 +36,11 @@ if __name__ == '__main__':
     ## Control Parameters
     k_att = 1
     k_rep = 3
-    kvx = 1
-    kvy = 1
-    kw = 0.6
-    h = 0.2
-    d_max = 0.8
+    kvx = 0.5
+    kvy = 0.5
+    kw = 0.5
+    h = 0.05
+    d_max = 0.5
     # Ros Node Config
     rospy.init_node("control_algorithm_node")
     rospy.Subscriber("/time",Int32,callback_time)
@@ -50,12 +50,17 @@ if __name__ == '__main__':
     rospy.Subscriber("/meta_coords",Float32MultiArray,callback_meta_pos)
     pub_cmd_vel = rospy.Publisher("/hsrb/command_velocity", Twist, queue_size=10)
     loop = rospy.Rate(10)
+    
+    # Esperar por los mensajes
+    rospy.wait_for_message('/meta_coords', Float32MultiArray, timeout=10000)
+    rospy.wait_for_message('/base_link_coords', Float32MultiArray, timeout=10000)
+    
     # Initial state
     n_sections = 24
     obstacle_angles = np.zeros((n_sections))
     obstacle_distances = np.zeros((n_sections))
-    base_pos = np.asarray([2,2,2])
-    meta_pos = np.zeros((3))
+    #base_pos = np.asarray([2,2,2])
+    #meta_pos = np.zeros((3))
     reloj = 0
     inicio = 0
     final = 0
@@ -85,6 +90,7 @@ if __name__ == '__main__':
             x_d = meta_pos[0]
             y_d = meta_pos[1]
             theta_d = meta_pos[2]
+        print(base_pos, meta_pos)
         print("Reference: ",x_d,", ",y_d,", ",theta_d)
         # Errors calculations
         error_x = x_d - base_pos[0]
@@ -96,7 +102,7 @@ if __name__ == '__main__':
         dis_error = math.sqrt(math.pow(meta_pos[0] - base_pos[0],2) + math.pow(meta_pos[1] - base_pos[1],2))
         angle_error = math.atan2(math.sin(meta_pos[2]-base_pos[2]),math.cos(meta_pos[2]-base_pos[2]))
         # Condition to continue or stop the control proccess
-        if dis_error >= 0.005 and abs(angle_error) >= 0.005:
+        if dis_error >= 0.01 or abs(angle_error) >= 0.01:
             msg_cmd_vel.linear.x = kvx*(error_x*math.cos(base_pos[2]) + error_y*math.sin(base_pos[2]))
             msg_cmd_vel.linear.y = kvy*(-error_x*math.sin(base_pos[2]) + error_y*math.cos(base_pos[2]))
             msg_cmd_vel.angular.z = kw*error_w
