@@ -47,10 +47,10 @@ def control(meta):
 	inicio = time
 	## Control Parameters
 	k_att = 1
-	k_rep = 3
+	k_rep = 2
 	kvx = 1.5
 	kvy = 1.5
-	kw = 1
+	kw = 2
 	h = 0.2
 	d_max = 0.8
 	pub_cmd_vel = rospy.Publisher("/hsrb/command_velocity", Twist, queue_size=10)
@@ -60,7 +60,7 @@ def control(meta):
 	obstacle_angles = np.zeros((n_sections))
 	obstacle_distances = np.zeros((n_sections))
 	base_pos = np.asarray([2,2,2])
-	rospy.sleep(1)
+	rospy.sleep(0.1)
 	
 
 	while not rospy.is_shutdown():
@@ -293,17 +293,17 @@ if __name__ == '__main__':
 			for i in range(len(path_coords)-1):
 				# Convertir nodos a coordenadas y publicarlas como meta a seguir
 				coords = Float32MultiArray()
-				coords.data = [path_coords[i][0], path_coords[i][1], 0]
+				coords.data = [path_coords[i][0], path_coords[i][1], math.atan2(path_coords[i][1]-base_pos[1], path_coords[i][0]-base_pos[0])]
 				# Esperar a que el robot esté cerca del punto a llegar.
 				while math.sqrt(math.pow(path_coords[i][0]-base_pos[0],2) + math.pow(path_coords[i][1]-base_pos[1],2)) > 0.2:
 					#print("Publicando coordenadas meta")
 					#pub_node_coords.publish(coords)
 					control(coords.data)
-					rospy.sleep(.2)
+					rospy.sleep(0.1)
 				
 		# Explorar último nodo de la trayectoria.
 		coords = Float32MultiArray()
-		coords.data = [path_coords[-1][0], path_coords[-1][1], 0]
+		coords.data = [path_coords[-1][0], path_coords[-1][1], math.atan2(path_coords[-1][1]-base_pos[1], path_coords[-1][0]-base_pos[0])]
 		# Esperar a que el estado del nodo inexplorado cambie a Explorado u Obstáculo
 		while minimap[next_node[1], next_node[0]] == 1:
 			# Actualizar minimapa y publicar coordenadas
@@ -311,7 +311,7 @@ if __name__ == '__main__':
 			#print("Publicando coordenadas meta")
 			control(coords.data)
 			#pub_node_coords.publish(coords)
-			rospy.sleep(1)
+			rospy.sleep(0.1)
 			
 		# Tomar el siguiente nodo sin explorar
 		current_node = (next_node[0], next_node[1])  	
